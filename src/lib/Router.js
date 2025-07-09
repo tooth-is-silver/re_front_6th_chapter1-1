@@ -4,19 +4,24 @@
 import { createObserver } from "./createObserver.js";
 
 export class Router {
-  #routes; // Map 형태로 경로와 핸들러를 저장
-  #route; // 현재 라우트 정보
+  #routes;
+  #route;
   #observer = createObserver();
+  #baseUrl;
 
-  constructor() {
+  constructor(baseUrl = "") {
     this.#routes = new Map();
     this.#route = null;
+    this.#baseUrl = baseUrl.replace(/\/$/, "");
 
-    // 브라우저 뒤로가기/앞으로가기 처리
     window.addEventListener("popstate", () => {
       this.#route = this.#findRoute();
       this.#observer.notify();
     });
+  }
+
+  get baseUrl() {
+    return this.#baseUrl;
   }
 
   get query() {
@@ -24,7 +29,7 @@ export class Router {
   }
 
   set query(newQuery) {
-    const newUrl = Router.getUrl(newQuery);
+    const newUrl = Router.getUrl(newQuery, this.#baseUrl);
     this.push(newUrl);
   }
 
@@ -59,7 +64,7 @@ export class Router {
       })
       .replace(/\//g, "\\/");
 
-    const regex = new RegExp(`^${regexPath}$`);
+    const regex = new RegExp(`^${this.#baseUrl}${regexPath}$`);
 
     this.#routes.set(path, {
       regex,
@@ -95,12 +100,15 @@ export class Router {
    */
   push(url) {
     try {
+      // baseUrl이 없으면 자동으로 붙여줌
+      let fullUrl = url.startsWith(this.#baseUrl) ? url : this.#baseUrl + (url.startsWith("/") ? url : "/" + url);
+
       // 히스토리 업데이트
-      if (window.location.href !== url) {
-        window.history.pushState(null, "", url);
+      if (window.location.href !== fullUrl) {
+        window.history.pushState(null, "", fullUrl);
       }
 
-      this.#route = this.#findRoute(url);
+      this.#route = this.#findRoute(fullUrl);
       this.#observer.notify();
     } catch (error) {
       console.error("라우터 네비게이션 오류:", error);
@@ -144,7 +152,7 @@ export class Router {
     return params.toString();
   };
 
-  static getUrl = (newQuery) => {
+  static getUrl = (newQuery, baseUrl = "") => {
     const currentQuery = Router.parseQuery();
     const updatedQuery = { ...currentQuery, ...newQuery };
 
@@ -156,6 +164,6 @@ export class Router {
     });
 
     const queryString = Router.stringifyQuery(updatedQuery);
-    return `${window.location.pathname}${queryString ? `?${queryString}` : ""}`;
+    return `${baseUrl}${window.location.pathname.replace(baseUrl, "")}${queryString ? `?${queryString}` : ""}`;
   };
 }
