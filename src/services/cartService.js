@@ -1,8 +1,5 @@
-import { createStorage } from "../lib";
-import { cartStore, uiStore, CART_ACTIONS, UI_ACTIONS } from "../stores";
-
-// 장바구니 로컬스토리지
-const cartStorage = createStorage("shopping_cart");
+import { CART_ACTIONS, cartStore, UI_ACTIONS, uiStore } from "../stores";
+import { cartStorage } from "../storage";
 
 /**
  * 로컬스토리지에서 장바구니 데이터 로드

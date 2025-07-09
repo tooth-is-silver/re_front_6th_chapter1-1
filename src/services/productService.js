@@ -3,6 +3,7 @@ import { initialProductState, productStore, PRODUCT_ACTIONS } from "../stores";
 import { router } from "../router";
 
 export const loadProductsAndCategories = async () => {
+  router.query = { current: undefined }; // 항상 첫 페이지로 초기화
   productStore.dispatch({
     type: PRODUCT_ACTIONS.SETUP,
     payload: {
