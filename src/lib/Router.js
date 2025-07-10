@@ -103,8 +103,10 @@ export class Router {
       // baseUrl이 없으면 자동으로 붙여줌
       let fullUrl = url.startsWith(this.#baseUrl) ? url : this.#baseUrl + (url.startsWith("/") ? url : "/" + url);
 
+      const prevFullUrl = `${window.location.pathname}${window.location.search}`;
+
       // 히스토리 업데이트
-      if (window.location.href !== fullUrl) {
+      if (prevFullUrl !== fullUrl) {
         window.history.pushState(null, "", fullUrl);
       }
 
