@@ -1,16 +1,105 @@
 // React에 있는 useEffect와 useState 같은 훅들을 구현해야하지만 바닐라 js에는 없으니 직접 구현해야한다
 // 결론 :: React의 useEffect처럼 "페이지 시작할 때", "페이지 끝날 때", "특정 값 바뀔 때"의 코드를 js로 구현
 
+const lifeCycles = new WeakMap();
+const initLifeCycle = { mount: null, unMount: null, watches: [], deps: [], mounted: false };
+const pageState = { current: null, previous: null };
+
+// page에 초기 lifecycle 세팅
+const getPageLifecycle = (page) => {
+  if (!lifeCycle.has(page)) {
+    lifeCycles.set(page, { ...initLifeCycle });
+  }
+  return lifeCycles.get(page);
+};
+
+const depsChanged = (newDeps, oldDeps) => {
+  if (!Array.isArray(newDeps) || !Array.isArray(oldDeps)) return false;
+
+  // newDeps와 oldDeps를 비교하여 변화되었는지 확인
+  if (newDeps.length !== oldDeps.length) return true;
+  return newDeps.some((dep, index) => dep !== oldDeps[index]);
+};
+
+const mount = (page) => {
+  // 페이지에 맞는 라이프사이클 객체 세팅 가져옴
+  const lifecycle = getPageLifecycle(page);
+  if (lifeCycle.mounted) return; // 이미 렌더가 되었다면 또 동작하지마라~
+
+  // 마운트시 라이프사이클 객체 실행
+  lifecycle.mount?.();
+  lifecycle.mounted = true;
+  lifecycle.deps = [];
+};
+
+const unmount = (page) => {
+  const lifecycle = getPageLifecycle(page);
+  if (!lifecycle.mounted) return;
+
+  // 언마운트시 라이프사이클 객체 초기화
+  lifecycle.unmount?.();
+  lifecycle.mounted = false;
+};
+
 // 고차 함수 패턴을 사용. 컴포넌트를 받아서 컴포넌트로 반환한다!
 // 어떤 페이지를 전달받는 것인지 확실하게 파악하기 위해 페이지만 인자를 분리
 // 데코레이터 패턴
 const lifeCycle = ({ onMount, onUnmount, watches } = {}, page) => {
-  console.log(onMount, onUnmount, watches);
-  return page;
+  const lifecycle = getPageLifecycle(page);
+
+  if (typeof onMount === "function") {
+    lifecycle.mount = onMount;
+  }
+
+  if (typeof onUnmount === "function") {
+    lifecycle.unmount = onUnmount;
+  }
+
+  if (Array.isArray(watches)) {
+    lifecycle.watches.push(...watches);
+  }
+
+  return (...args) => {
+    // 새로 열린 페이지인지 확인
+    const newPage = pageState.current !== page;
+
+    // 기존 페이지 언마운트
+    if (pageState.current && newPage) {
+      unmount(pageState.current);
+    }
+
+    // 새로운 페이지 상태에 적용
+    pageState.previous = pageState.current;
+    pageState.current = page;
+
+    // 새로운 페이지라면?
+    if (newPage) {
+      // 페이지를 렌더
+      mount(page);
+    } else {
+      // 아니면 기존 페이지의 상태를 업데이트
+      if (lifecycle.watches) {
+        lifecycle.watches.forEach((state, index) => {
+          const [getDeps, callback] = state; // 이 부분은 로직 한 번 더 확인 필요
+          const newDeps = getDeps();
+
+          if (depsChanged(newDeps, lifecycle.deps[index])) {
+            console.log(`📊 의존성 변경 감지 (${page.name}):`, lifecycle.deps[index], "→", newDeps);
+            callback();
+          }
+          // deps 업데이트
+          lifecycle.deps[index] = Array.isArray(newDeps) ? [...newDeps] : [];
+        });
+      }
+
+      return page(...args);
+    }
+  };
   // 페이지마다 초기화 작업이 필요해요
   // 데이터를 서버에서 가져와야 하고
   // 타이머를 설정해야 하고
   // 이벤트 리스너를 붙여야 하고...
+
   // 페이지를 떠날 때 정리 작업이 필요해요
   // 타이머를 꺼야 하고
   // 이벤트 리스너를 제거해야 하고
